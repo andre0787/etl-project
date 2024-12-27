@@ -2,54 +2,52 @@
 Extrator de dados de arquivos CSV
 """
 import pandas as pd
-import os
-from typing import Optional
+from pathlib import Path
+from typing import Dict, Any
 from etl_project.extractors.base_extractor import BaseExtractor
+from etl_project.utils.logger import setup_logger
+
+logger = setup_logger(__name__)
 
 class CSVExtractor(BaseExtractor):
-    """
-    Extrator para arquivos CSV
-    """
-    
-    def __init__(self, filepath: str, encoding: str = 'utf-8', **kwargs):
+    def __init__(self, filepath: str):
         """
         Inicializa o extrator CSV.
         
         Args:
             filepath: Caminho para o arquivo CSV
-            encoding: Encoding do arquivo (default: utf-8)
-            **kwargs: Argumentos adicionais para pd.read_csv
         """
         self.filepath = filepath
-        self.encoding = encoding
-        self.kwargs = kwargs
-        
-    def extract(self) -> pd.DataFrame:
+        logger.info(f"Inicializando CSVExtractor para o arquivo: {filepath}")
+    
+    def extract(self) -> Dict[str, Any]:
         """
         Extrai dados do arquivo CSV.
         
         Returns:
-            DataFrame com os dados do CSV
+            Dicionário com os dados extraídos
             
         Raises:
-            FileNotFoundError: Se o arquivo não existir
-            Exception: Para outros erros de leitura
+            FileNotFoundError: Se o arquivo não for encontrado
         """
-        if not os.path.exists(self.filepath):
-            raise FileNotFoundError(f"Arquivo não encontrado: {self.filepath}")
-            
         try:
-            df = pd.read_csv(
-                self.filepath,
-                encoding=self.encoding,
-                **self.kwargs
-            )
+            logger.debug(f"Iniciando extração do arquivo: {self.filepath}")
             
-            # Converter tipos básicos
+            if not Path(self.filepath).exists():
+                logger.error(f"Arquivo não encontrado: {self.filepath}")
+                raise FileNotFoundError(f"Arquivo não encontrado: {self.filepath}")
+            
+            df = pd.read_csv(self.filepath)
+            
+            # Converter coluna de data
             if 'data' in df.columns:
-                df['data'] = pd.to_datetime(df['data'])
+                logger.debug("Convertendo coluna 'data' para datetime")
+                df['data'] = pd.to_datetime(df['data'], errors='coerce')
+                logger.debug("Conversão da coluna 'data' concluída")
             
-            return df
+            logger.info(f"Extração concluída com sucesso. {len(df)} registros carregados.")
+            return {'data': df}
             
         except Exception as e:
-            raise Exception(f"Erro ao ler arquivo CSV: {str(e)}")
+            logger.error(f"Erro ao extrair dados do arquivo CSV: {str(e)}")
+            raise
