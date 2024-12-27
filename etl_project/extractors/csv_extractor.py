@@ -4,6 +4,7 @@ Módulo para extração de dados de arquivos CSV
 import pandas as pd
 from etl_project.utils.logger import setup_logger
 from etl_project.utils.config import Config
+from etl_project.validators.vendas_validator import VendasValidator
 
 logger = setup_logger(__name__)
 
@@ -22,6 +23,7 @@ class CSVExtractor:
         logger.info(f"Inicializando CSVExtractor para o arquivo: {filepath}")
         self.filepath = filepath
         self.config = Config()
+        self.validator = VendasValidator()
     
     def extract(self) -> pd.DataFrame:
         """
@@ -32,6 +34,7 @@ class CSVExtractor:
             
         Raises:
             FileNotFoundError: Se o arquivo não existir
+            ValidationError: Se os dados forem inválidos
         """
         try:
             logger.debug(f"Iniciando extração do arquivo: {self.filepath}")
@@ -52,8 +55,19 @@ class CSVExtractor:
             column_mapping = {v: k for k, v in columns.items()}
             df = df.rename(columns=column_mapping)
             
-            logger.info(f"Extração concluída com sucesso. {len(df)} registros carregados.")
-            return df
+            # Validar cada linha
+            logger.debug("Iniciando validação dos dados")
+            validated_data = []
+            for _, row in df.iterrows():
+                data = row.to_dict()
+                validated_row = self.validator.validate(data)
+                validated_data.append(validated_row)
+            
+            # Criar novo DataFrame com dados validados
+            df_validated = pd.DataFrame(validated_data)
+            
+            logger.info(f"Extração e validação concluídas com sucesso. {len(df_validated)} registros carregados.")
+            return df_validated
             
         except FileNotFoundError:
             logger.error(f"Arquivo não encontrado: {self.filepath}")
