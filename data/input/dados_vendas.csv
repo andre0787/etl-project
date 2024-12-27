@@ -1,0 +1,7 @@
+data_venda,produto,valor,quantidade
+2024-01-01,Produto A,100.50,2
+2024-01-01,Produto B,200.75,1
+2024-01-02,Produto A,150.25,3
+2024-01-02,Produto C,75.00,4
+2024-01-03,Produto B,180.50,2
+2024-01-03,Produto C,90.25,1
