@@ -21,6 +21,7 @@ seaborn = "^0.13.0"
 plotly = "^5.18.0"
 openpyxl = "^3.1.5"
 pydantic = "^2.5.3"
+fpdf = "^1.7.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.0"
