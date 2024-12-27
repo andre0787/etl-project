@@ -1,43 +1,50 @@
 """
-Loader para salvar dados em arquivos Excel
+Módulo para carregar dados em arquivos Excel
 """
+import os
 import pandas as pd
-from pathlib import Path
-from typing import Union
 from etl_project.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
 class ExcelLoader:
-    def __init__(self, output_dir: Union[str, Path]):
+    """
+    Classe para carregar dados em arquivos Excel
+    """
+    
+    def __init__(self, output_dir: str):
         """
-        Inicializa o loader Excel.
+        Inicializa o loader de Excel
         
         Args:
-            output_dir: Diretório onde os arquivos serão salvos
+            output_dir: Diretório de saída para os arquivos Excel
         """
-        self.output_dir = Path(output_dir)
         logger.info(f"Inicializando ExcelLoader para o arquivo: {output_dir}")
-        
+        self.output_dir = output_dir
+    
     def save(self, df: pd.DataFrame, filename: str) -> None:
         """
-        Salva o DataFrame em um arquivo Excel.
+        Salva um DataFrame em um arquivo Excel
         
         Args:
-            df: DataFrame a ser salvo
+            df: DataFrame para salvar
             filename: Nome do arquivo Excel
+            
+        Raises:
+            Exception: Se houver erro ao salvar o arquivo
         """
         try:
-            # Garantir que o diretório existe
-            self.output_dir.mkdir(parents=True, exist_ok=True)
+            # Criar diretório se não existir
+            os.makedirs(self.output_dir, exist_ok=True)
             
-            # Construir caminho completo
-            filepath = self.output_dir / filename
-            
+            # Caminho completo do arquivo
+            filepath = os.path.join(self.output_dir, filename)
             logger.debug(f"Salvando DataFrame em: {filepath}")
+            
+            # Salvar arquivo
             df.to_excel(filepath, index=False)
             logger.info(f"Arquivo salvo com sucesso: {filepath}")
             
         except Exception as e:
             logger.error(f"Erro ao salvar arquivo Excel: {str(e)}")
-            raise
+            raise Exception(f"Erro ao salvar arquivo Excel: {str(e)}")

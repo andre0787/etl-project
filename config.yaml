@@ -1,0 +1,37 @@
+# Configurações do ETL Pipeline
+
+# Configurações de entrada
+input:
+  directory: "data/input"
+  filename: "vendas.csv"
+  date_format: "%Y-%m-%d"
+  columns:
+    date: "data"
+    product: "produto"
+    quantity: "quantidade"
+    price: "preco_unitario"
+
+# Configurações de saída
+output:
+  directory: "data/output"
+  files:
+    detailed: "vendas_detalhado.xlsx"
+    product_summary: "vendas_resumo_produto.xlsx"
+    daily_summary: "vendas_resumo_diario.xlsx"
+
+# Configurações de logging
+logging:
+  level: "DEBUG"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  file: "logs/etl.log"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  date_format: "%Y-%m-%d %H:%M:%S"
+
+# Configurações de transformação
+transform:
+  group_by:
+    - "produto"
+    - "data"
+  aggregations:
+    - "sum"
+    - "mean"
+    - "count"

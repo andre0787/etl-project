@@ -1,47 +1,63 @@
 """
-Script principal para execução do pipeline ETL
+Script principal do ETL Pipeline
 """
-from pathlib import Path
+import os
+import logging
 from etl_project.extractors.csv_extractor import CSVExtractor
 from etl_project.transformers.vendas_transformer import VendasTransformer
 from etl_project.loaders.excel_loader import ExcelLoader
 from etl_project.utils.logger import setup_logger
+from etl_project.utils.config import Config
 
+# Configurar logger
 logger = setup_logger(__name__)
 
 def main():
+    """
+    Função principal que executa o pipeline ETL
+    """
     try:
-        # Configurar caminhos
-        input_file = Path('data/input/vendas.csv')
-        output_dir = Path('data/output')
-        
-        # Criar diretórios se não existirem
-        input_file.parent.mkdir(parents=True, exist_ok=True)
-        output_dir.mkdir(parents=True, exist_ok=True)
-        
         logger.info("Iniciando pipeline ETL")
         
-        # Extração
-        logger.info("Iniciando extração dos dados")
-        extractor = CSVExtractor(str(input_file))
-        dados_extraidos = extractor.extract()
+        # Carregar configurações
+        config = Config()
+        config.validate()
+        input_config = config.get('input')
+        output_config = config.get('output')
         
-        # Transformação
+        # Criar diretório de saída se não existir
+        os.makedirs(output_config['directory'], exist_ok=True)
+        
+        # Extrair dados
+        logger.info("Iniciando extração dos dados")
+        input_path = os.path.join(input_config['directory'], input_config['filename'])
+        extractor = CSVExtractor(input_path)
+        df = extractor.extract()
+        
+        # Transformar dados
         logger.info("Iniciando transformação dos dados")
         transformer = VendasTransformer()
-        dados_transformados = transformer.transform(dados_extraidos)
+        df_detalhado = transformer.transform(df)
+        df_produto = transformer.group_by_product(df_detalhado)
+        df_diario = transformer.group_by_date(df_detalhado)
         
-        # Carga
-        logger.info("Iniciando carga dos dados")
-        loader = ExcelLoader(output_dir)
+        # Carregar dados
+        logger.info("Iniciando carregamento dos dados")
+        loader = ExcelLoader(output_config['directory'])
         
-        # Salvar cada DataFrame em um arquivo Excel separado
-        for nome, df in dados_transformados.items():
-            output_file = f"vendas_{nome}.xlsx"
-            loader.save(df, output_file)
-            logger.info(f"Arquivo {output_file} salvo com sucesso")
+        # Salvar relatório detalhado
+        loader.save(df_detalhado, output_config['files']['detailed'])
+        logger.info(f"Arquivo {output_config['files']['detailed']} salvo com sucesso")
         
-        logger.info("Pipeline ETL executado com sucesso")
+        # Salvar resumo por produto
+        loader.save(df_produto, output_config['files']['product_summary'])
+        logger.info(f"Arquivo {output_config['files']['product_summary']} salvo com sucesso")
+        
+        # Salvar resumo diário
+        loader.save(df_diario, output_config['files']['daily_summary'])
+        logger.info(f"Arquivo {output_config['files']['daily_summary']} salvo com sucesso")
+        
+        logger.info("Pipeline ETL concluído com sucesso")
         
     except Exception as e:
         logger.error(f"Erro durante a execução do pipeline: {str(e)}")
