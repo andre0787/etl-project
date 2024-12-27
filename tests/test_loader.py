@@ -1,61 +1,93 @@
+"""
+Testes para o módulo loader
+"""
 import os
-import pytest
 import pandas as pd
-import openpyxl
+import pytest
+from datetime import datetime
 from etl_project.loaders.excel_loader import ExcelLoader
 
 @pytest.fixture
 def sample_data():
-    return {
-        'detalhado': pd.DataFrame({
-            'data': pd.to_datetime(['2024-01-01', '2024-01-02']),
-            'produto': ['Produto A', 'Produto B'],
-            'quantidade': [10, 5],
-            'valor_total': [1005.00, 251.25]
-        }),
-        'resumo_produto': pd.DataFrame({
-            'produto': ['Produto A', 'Produto B'],
-            'quantidade': [10, 5],
-            'valor_total': [1005.00, 251.25]
-        }),
-        'resumo_diario': pd.DataFrame({
-            'data': pd.to_datetime(['2024-01-01', '2024-01-02']),
-            'quantidade': [10, 5],
-            'valor_total': [1005.00, 251.25]
-        })
-    }
+    """
+    Fixture com dados de exemplo para testes
+    """
+    return pd.DataFrame({
+        'data': [datetime(2024, 1, 1), datetime(2024, 1, 2)],
+        'produto': ['A', 'B'],
+        'quantidade': [10, 5],
+        'valor_total': [100.0, 50.0]
+    })
 
 @pytest.fixture
-def temp_excel_file(tmp_path):
-    return os.path.join(tmp_path, 'test_output.xlsx')
+def temp_dir(tmp_path):
+    """
+    Fixture que cria um diretório temporário para testes
+    """
+    return str(tmp_path)
 
-def test_excel_loader_save_success(sample_data, temp_excel_file):
-    """Testa se o loader salva corretamente o arquivo Excel"""
-    loader = ExcelLoader(temp_excel_file)
-    loader.load(sample_data)
+def test_excel_loader_save_success(sample_data, temp_dir):
+    """
+    Testa se o loader salva corretamente o arquivo Excel
+    """
+    loader = ExcelLoader(temp_dir)
+    filename = "test_output.xlsx"
     
-    assert os.path.exists(temp_excel_file)
+    # Salvar arquivo
+    loader.save(sample_data, filename)
     
-    # Verifica se todas as abas foram criadas
-    excel_file = pd.ExcelFile(temp_excel_file)
-    expected_sheets = ['Detalhado', 'Resumo por Produto', 'Resumo Diário']
-    assert all(sheet in excel_file.sheet_names for sheet in expected_sheets)
+    # Verificar se arquivo foi criado
+    filepath = os.path.join(temp_dir, filename)
+    assert os.path.exists(filepath)
+    
+    # Verificar conteúdo
+    df_loaded = pd.read_excel(filepath)
+    
+    # Converter tipos para corresponder aos originais
+    df_loaded['valor_total'] = df_loaded['valor_total'].astype(float)
+    
+    pd.testing.assert_frame_equal(df_loaded, sample_data)
 
 def test_excel_loader_invalid_path(sample_data):
-    """Testa se o loader lida corretamente com caminho inválido"""
+    """
+    Testa se o loader lida corretamente com caminho inválido
+    """
     # No Windows, usar um caminho que sabemos que não teremos permissão
-    loader = ExcelLoader('C:/Windows/System32/teste.xlsx')
+    loader = ExcelLoader('C:/Windows/System32')
+    
     with pytest.raises(Exception, match="Erro ao salvar arquivo Excel"):
-        loader.load(sample_data)
+        loader.save(sample_data, 'test.xlsx')
 
-def test_excel_loader_data_integrity(sample_data, temp_excel_file):
-    """Testa se os dados são mantidos corretamente após salvar"""
-    loader = ExcelLoader(temp_excel_file)
-    loader.load(sample_data)
+def test_excel_loader_create_directory(sample_data, temp_dir):
+    """
+    Testa se o loader cria o diretório de saída se não existir
+    """
+    # Criar um subdiretório que não existe
+    output_dir = os.path.join(temp_dir, 'new_dir')
     
-    # Lê os dados salvos
-    df_salvo = pd.read_excel(temp_excel_file, sheet_name='Detalhado')
+    loader = ExcelLoader(output_dir)
+    filename = "test_output.xlsx"
     
-    # Verifica se os dados estão corretos
-    assert len(df_salvo) == len(sample_data['detalhado'])
-    assert all(col in df_salvo.columns for col in sample_data['detalhado'].columns)
+    # Salvar arquivo
+    loader.save(sample_data, filename)
+    
+    # Verificar se diretório e arquivo foram criados
+    assert os.path.exists(output_dir)
+    assert os.path.exists(os.path.join(output_dir, filename))
+
+def test_excel_loader_empty_dataframe(temp_dir):
+    """
+    Testa se o loader lida corretamente com DataFrame vazio
+    """
+    loader = ExcelLoader(temp_dir)
+    df_empty = pd.DataFrame()
+    
+    loader.save(df_empty, "empty.xlsx")
+    
+    # Verificar se arquivo foi criado
+    filepath = os.path.join(temp_dir, "empty.xlsx")
+    assert os.path.exists(filepath)
+    
+    # Verificar se está vazio
+    df_loaded = pd.read_excel(filepath)
+    assert df_loaded.empty

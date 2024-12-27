@@ -1,66 +1,110 @@
 """
-Transformer para processamento de dados de vendas
+Módulo para transformação dos dados de vendas
 """
 import pandas as pd
-from typing import Dict, Any
-from etl_project.transformers.base_transformer import BaseTransformer
 from etl_project.utils.logger import setup_logger
+from etl_project.utils.config import Config
 
 logger = setup_logger(__name__)
 
-class VendasTransformer(BaseTransformer):
+class VendasTransformer:
+    """
+    Classe para transformação dos dados de vendas
+    """
+    
     def __init__(self):
         """
-        Inicializa o transformer de vendas
+        Inicializa o transformador de vendas
         """
         logger.info("Inicializando VendasTransformer")
+        self.config = Config()
     
-    def transform(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """
-        Transforma os dados de vendas.
+        Transforma os dados de vendas
         
         Args:
-            data: Dicionário com DataFrame de vendas
+            df: DataFrame com os dados de vendas
             
         Returns:
-            Dicionário com DataFrames transformados
+            DataFrame transformado
         """
         try:
             logger.debug("Iniciando transformação dos dados de vendas")
-            df = data['data']
             
             # Calcular valor total
             logger.debug("Calculando valor total das vendas")
-            if 'preco' not in df.columns:
-                logger.warning("Coluna 'preco' não encontrada, usando preco_unitario")
-                preco_col = 'preco_unitario'
-            else:
-                preco_col = 'preco'
-                
-            df['valor_total'] = df['quantidade'] * df[preco_col]
-            
-            # Criar resumos
-            logger.debug("Criando resumo por produto")
-            resumo_produto = df.groupby('produto').agg({
-                'quantidade': 'sum',
-                'valor_total': 'sum'
-            }).reset_index()
-            
-            logger.debug("Criando resumo diário")
-            resumo_diario = df.groupby('data').agg({
-                'quantidade': 'sum',
-                'valor_total': 'sum'
-            }).reset_index()
-            
-            resultado = {
-                'detalhado': df,
-                'resumo_produto': resumo_produto,
-                'resumo_diario': resumo_diario
-            }
+            try:
+                df['total_value'] = df['quantity'] * df['price']
+            except KeyError:
+                logger.warning("Coluna 'price' não encontrada, usando price_unit")
+                df['total_value'] = df['quantity'] * df['price_unit']
             
             logger.info("Transformação concluída com sucesso")
-            return resultado
+            return df
             
         except Exception as e:
             logger.error(f"Erro ao transformar dados: {str(e)}")
+            raise
+    
+    def group_by_product(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Agrupa os dados por produto
+        
+        Args:
+            df: DataFrame com os dados de vendas
+            
+        Returns:
+            DataFrame agrupado por produto
+        """
+        try:
+            logger.debug("Criando resumo por produto")
+            
+            # Agrupar por produto
+            df_produto = df.groupby('product').agg({
+                'quantity': 'sum',
+                'total_value': 'sum'
+            }).reset_index()
+            
+            # Calcular preço médio
+            df_produto['average_price'] = df_produto['total_value'] / df_produto['quantity']
+            
+            logger.debug("Resumo por produto criado com sucesso")
+            return df_produto
+            
+        except Exception as e:
+            logger.error(f"Erro ao agrupar por produto: {str(e)}")
+            raise
+    
+    def group_by_date(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Agrupa os dados por data
+        
+        Args:
+            df: DataFrame com os dados de vendas
+            
+        Returns:
+            DataFrame agrupado por data
+        """
+        try:
+            logger.debug("Criando resumo diário")
+            
+            # Agrupar por data
+            df_diario = df.groupby('date').agg({
+                'quantity': 'sum',
+                'total_value': 'sum',
+                'product': 'count'
+            }).reset_index()
+            
+            # Renomear coluna de contagem
+            df_diario = df_diario.rename(columns={'product': 'total_products'})
+            
+            # Calcular ticket médio
+            df_diario['average_ticket'] = df_diario['total_value'] / df_diario['total_products']
+            
+            logger.debug("Resumo diário criado com sucesso")
+            return df_diario
+            
+        except Exception as e:
+            logger.error(f"Erro ao agrupar por data: {str(e)}")
             raise

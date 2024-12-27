@@ -1,53 +1,64 @@
 """
-Extrator de dados de arquivos CSV
+Módulo para extração de dados de arquivos CSV
 """
 import pandas as pd
-from pathlib import Path
-from typing import Dict, Any
-from etl_project.extractors.base_extractor import BaseExtractor
 from etl_project.utils.logger import setup_logger
+from etl_project.utils.config import Config
 
 logger = setup_logger(__name__)
 
-class CSVExtractor(BaseExtractor):
+class CSVExtractor:
+    """
+    Classe para extrair dados de arquivos CSV
+    """
+    
     def __init__(self, filepath: str):
         """
-        Inicializa o extrator CSV.
+        Inicializa o extrator CSV
         
         Args:
             filepath: Caminho para o arquivo CSV
         """
-        self.filepath = filepath
         logger.info(f"Inicializando CSVExtractor para o arquivo: {filepath}")
+        self.filepath = filepath
+        self.config = Config()
     
-    def extract(self) -> Dict[str, Any]:
+    def extract(self) -> pd.DataFrame:
         """
-        Extrai dados do arquivo CSV.
+        Extrai dados do arquivo CSV
         
         Returns:
-            Dicionário com os dados extraídos
+            DataFrame com os dados extraídos
             
         Raises:
-            FileNotFoundError: Se o arquivo não for encontrado
+            FileNotFoundError: Se o arquivo não existir
         """
         try:
             logger.debug(f"Iniciando extração do arquivo: {self.filepath}")
             
-            if not Path(self.filepath).exists():
-                logger.error(f"Arquivo não encontrado: {self.filepath}")
-                raise FileNotFoundError(f"Arquivo não encontrado: {self.filepath}")
-            
+            # Ler arquivo CSV
             df = pd.read_csv(self.filepath)
             
+            # Obter configurações das colunas
+            columns = self.config.get('input')['columns']
+            
             # Converter coluna de data
-            if 'data' in df.columns:
-                logger.debug("Convertendo coluna 'data' para datetime")
-                df['data'] = pd.to_datetime(df['data'], errors='coerce')
-                logger.debug("Conversão da coluna 'data' concluída")
+            logger.debug("Convertendo coluna 'data' para datetime")
+            date_format = self.config.get('input')['date_format']
+            df[columns['date']] = pd.to_datetime(df[columns['date']], format=date_format)
+            logger.debug("Conversão da coluna 'data' concluída")
+            
+            # Renomear colunas para o padrão interno
+            column_mapping = {v: k for k, v in columns.items()}
+            df = df.rename(columns=column_mapping)
             
             logger.info(f"Extração concluída com sucesso. {len(df)} registros carregados.")
-            return {'data': df}
+            return df
+            
+        except FileNotFoundError:
+            logger.error(f"Arquivo não encontrado: {self.filepath}")
+            raise
             
         except Exception as e:
-            logger.error(f"Erro ao extrair dados do arquivo CSV: {str(e)}")
+            logger.error(f"Erro ao extrair dados: {str(e)}")
             raise
